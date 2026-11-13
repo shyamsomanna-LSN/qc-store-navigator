@@ -1,0 +1,28 @@
+{
+  "name": "QC Store Navigator",
+  "short_name": "QC Navigator",
+  "description": "Find and navigate to nearest QC stores — GPS, radius filter, one-tap directions",
+  "start_url": "/qc-store-navigator/",
+  "scope": "/qc-store-navigator/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0D1E35",
+  "theme_color": "#0D1E35",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["navigation", "utilities", "business"],
+  "lang": "en-IN",
+  "dir": "ltr"
+}
