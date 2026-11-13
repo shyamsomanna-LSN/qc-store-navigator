@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -179,14 +181,18 @@ jobs:
 
       - name: Find and list APK
         run: |
-          find . -name "*.apk" | head -20
-          ls -lh app/build/outputs/apk/release/ 2>/dev/null || echo "APK dir not found"
+          echo "=== All APK files ==="
+          find . -name "*.apk" 2>/dev/null
+          echo "=== Release dir ==="
+          find . -path "*/apk/release*" -name "*.apk" 2>/dev/null || echo "No release APK found"
+          APK=$(find . -name "*.apk" | head -1)
+          echo "APK_PATH=$APK" >> $GITHUB_ENV
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: QC-Navigator-APK
-          path: app/build/outputs/apk/release/*.apk
+          path: ${{ env.APK_PATH }}
           retention-days: 90
 
       - name: Create GitHub Release
@@ -209,6 +215,6 @@ jobs:
             - One-tap Google Maps navigation
             - Share store location with riders
             - 531 stores: Mumbai, Bangalore, Patna, Kolkata
-          files: app/build/outputs/apk/release/*.apk
+          files: ${{ env.APK_PATH }}
           draft: false
           prerelease: false
