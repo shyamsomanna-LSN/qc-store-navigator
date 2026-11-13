@@ -17,18 +17,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Bubblewrap and expect
-        run: |
-          npm install -g @bubblewrap/cli
-          sudo apt-get install -y expect
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-
       - name: Generate keystore
         run: |
           keytool -genkeypair -v \
@@ -40,72 +28,165 @@ jobs:
             -keypass qcnav2024 \
             -dname "CN=QC Navigator, OU=Loadshare, O=Loadshare Networks, L=Bangalore, S=Karnataka, C=IN"
 
-      - name: Create TWA manifest
+      - name: Create Android TWA project
         run: |
-          cat > twa-manifest.json << 'EOF'
-          {
-            "packageId": "net.loadshare.qcnavigator",
-            "host": "shyamsomanna-lsn.github.io",
-            "name": "QC Store Navigator",
-            "launcherName": "QC Navigator",
-            "display": "standalone",
-            "orientation": "portrait",
-            "themeColor": "#0D1E35",
-            "backgroundColor": "#0D1E35",
-            "startUrl": "/qc-store-navigator/",
-            "iconUrl": "https://shyamsomanna-lsn.github.io/qc-store-navigator/icon-512.png",
-            "maskableIconUrl": "https://shyamsomanna-lsn.github.io/qc-store-navigator/icon-512.png",
-            "shortcuts": [],
-            "signingKey": {
-              "path": "./qc-navigator.keystore",
-              "alias": "qcnavigator"
-            },
-            "appVersionCode": 1,
-            "appVersion": "1.0.0",
-            "enableNotifications": false,
-            "features": {},
-            "alphaDependencies": {"enabled": false},
-            "enableSiteSettingsShortcut": false,
-            "isChromeOSOnly": false,
-            "isMetaQuest": false,
-            "minSdkVersion": 19,
-            "targetSdkVersion": 34,
-            "retainedBundles": []
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p gradle/wrapper
+
+          # settings.gradle
+          cat > settings.gradle << 'EOF'
+          pluginManagement {
+            repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "QCNavigator"
+          include ':app'
+          EOF
+
+          # Root build.gradle
+          cat > build.gradle << 'EOF'
+          plugins {
+            id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
-      - name: Build APK with Bubblewrap (via expect)
-        env:
-          BUBBLEWRAP_KEYSTORE_PASSWORD: qcnav2024
-          BUBBLEWRAP_KEY_PASSWORD: qcnav2024
-        run: |
-          JAVA_PATH="$JAVA_HOME"
-          expect -c "
-            set timeout 300
-            spawn bubblewrap build \
-              --manifest twa-manifest.json \
-              --skipPwaValidation \
-              --signingKeyStorePath ./qc-navigator.keystore \
-              --signingKeyStorePassword qcnav2024 \
-              --signingKeyAlias qcnavigator \
-              --signingKeyPassword qcnav2024
-            expect {
-              -re {install the JDK} { send \"n\r\"; exp_continue }
-              -re {Path to your existing JDK} { send \"${JAVA_PATH}\r\"; exp_continue }
-              eof
+          # app/build.gradle
+          cat > app/build.gradle << 'EOF'
+          plugins { id 'com.android.application' }
+          android {
+            namespace 'net.loadshare.qcnavigator'
+            compileSdk 34
+            defaultConfig {
+              applicationId 'net.loadshare.qcnavigator'
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName '1.0.0'
             }
-            catch wait result
-            exit [lindex \$result 3]
-          "
+            signingConfigs {
+              release {
+                storeFile file('../../qc-navigator.keystore')
+                storePassword 'qcnav2024'
+                keyAlias 'qcnavigator'
+                keyPassword 'qcnav2024'
+              }
+            }
+            buildTypes {
+              release {
+                signingConfig signingConfigs.release
+                minifyEnabled false
+              }
+            }
+            compileOptions {
+              sourceCompatibility JavaVersion.VERSION_17
+              targetCompatibility JavaVersion.VERSION_17
+            }
+          }
+          dependencies {
+            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+          }
+          EOF
 
-      - name: Find APK
-        run: find . -name "*.apk" | head -20
+          # AndroidManifest.xml
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET" />
+            <application
+              android:label="QC Navigator"
+              android:supportsRtl="true"
+              android:allowBackup="true">
+              <activity
+                android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+                android:exported="true">
+                <meta-data
+                  android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                  android:value="https://shyamsomanna-lsn.github.io/qc-store-navigator/" />
+                <meta-data
+                  android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                  android:resource="@color/colorPrimary" />
+                <meta-data
+                  android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
+                  android:resource="@color/colorPrimary" />
+                <intent-filter android:autoVerify="true">
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="android.intent.category.LAUNCHER" />
+                </intent-filter>
+                <intent-filter android:autoVerify="true">
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data
+                    android:scheme="https"
+                    android:host="shyamsomanna-lsn.github.io"
+                    android:pathPrefix="/qc-store-navigator/" />
+                </intent-filter>
+              </activity>
+              <service
+                android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+                android:exported="true">
+                <intent-filter>
+                  <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE"/>
+                  <category android:name="android.intent.category.DEFAULT"/>
+                </intent-filter>
+              </service>
+            </application>
+          </manifest>
+          EOF
+
+          # colors.xml
+          cat > app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <color name="colorPrimary">#0D1E35</color>
+          </resources>
+          EOF
+
+          # strings.xml
+          cat > app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <string name="app_name">QC Store Navigator</string>
+          </resources>
+          EOF
+
+          # gradle wrapper properties
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          # Download gradle wrapper jar
+          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+
+          # gradlew script
+          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradlew" -o gradlew
+          chmod +x gradlew
+
+      - name: Build APK
+        run: |
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.useAndroidX=true \
+            2>&1 | tail -50
+
+      - name: Find and list APK
+        run: |
+          find . -name "*.apk" | head -20
+          ls -lh app/build/outputs/apk/release/ 2>/dev/null || echo "APK dir not found"
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: QC-Navigator-APK
-          path: "**/*.apk"
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 90
 
       - name: Create GitHub Release
@@ -120,7 +201,7 @@ jobs:
             1. Download the `.apk` file below
             2. Open it on your Android phone
             3. Allow "Install from unknown sources" if prompted
-            4. Done — works like any Play Store app
+            4. Done!
 
             **Features:**
             - GPS location — find nearest stores
@@ -128,6 +209,6 @@ jobs:
             - One-tap Google Maps navigation
             - Share store location with riders
             - 531 stores: Mumbai, Bangalore, Patna, Kolkata
-          files: "**/*.apk"
+          files: app/build/outputs/apk/release/*.apk
           draft: false
           prerelease: false
