@@ -1,0 +1,118 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Generate keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore qc-navigator.keystore \
+            -alias qcnavigator \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass qcnav2024 \
+            -keypass qcnav2024 \
+            -dname "CN=QC Navigator, OU=Loadshare, O=Loadshare Networks, L=Bangalore, S=Karnataka, C=IN"
+
+      - name: Create Bubblewrap config
+        run: |
+          cat > twa-manifest.json << 'EOF'
+          {
+            "packageId": "net.loadshare.qcnavigator",
+            "host": "shyamsomanna-lsn.github.io",
+            "name": "QC Store Navigator",
+            "launcherName": "QC Navigator",
+            "display": "standalone",
+            "orientation": "portrait",
+            "themeColor": "#0D1E35",
+            "backgroundColor": "#0D1E35",
+            "startUrl": "/qc-store-navigator/",
+            "iconUrl": "https://shyamsomanna-lsn.github.io/qc-store-navigator/icon-512.png",
+            "maskableIconUrl": "https://shyamsomanna-lsn.github.io/qc-store-navigator/icon-512.png",
+            "shortcuts": [],
+            "signingKey": {
+              "path": "./qc-navigator.keystore",
+              "alias": "qcnavigator"
+            },
+            "appVersionCode": 1,
+            "appVersion": "1.0.0",
+            "enableNotifications": false,
+            "features": {},
+            "alphaDependencies": {"enabled": false},
+            "enableSiteSettingsShortcut": false,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "minSdkVersion": 19,
+            "targetSdkVersion": 34,
+            "retainedBundles": []
+          }
+          EOF
+
+      - name: Build APK with Bubblewrap
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: qcnav2024
+          BUBBLEWRAP_KEY_PASSWORD: qcnav2024
+        run: |
+          bubblewrap build \
+            --manifest twa-manifest.json \
+            --skipPwaValidation \
+            --signingKeyStorePath ./qc-navigator.keystore \
+            --signingKeyStorePassword qcnav2024 \
+            --signingKeyAlias qcnavigator \
+            --signingKeyPassword qcnav2024
+
+      - name: Find APK
+        run: find . -name "*.apk" | head -20
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QC-Navigator-APK
+          path: "**/*.apk"
+          retention-days: 90
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: QC Store Navigator v1.0.${{ github.run_number }}
+          body: |
+            ## QC Store Navigator APK
+
+            **Install on Android:**
+            1. Download `app-release-signed.apk` below
+            2. Open the file on your Android phone
+            3. Allow "Install from unknown sources" if prompted
+            4. Done — the app installs like any Play Store app
+
+            **Features:**
+            - GPS location → Find nearest stores
+            - 3 / 5 / 10 km radius filter
+            - One-tap Google Maps navigation
+            - Share store location with riders
+            - 531 stores: Mumbai, Bangalore, Patna, Kolkata
+          files: "**/*.apk"
+          draft: false
+          prerelease: false
