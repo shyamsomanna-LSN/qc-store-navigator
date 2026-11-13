@@ -75,7 +75,7 @@ jobs:
           BUBBLEWRAP_KEYSTORE_PASSWORD: qcnav2024
           BUBBLEWRAP_KEY_PASSWORD: qcnav2024
         run: |
-          bubblewrap build \
+          echo "n" | bubblewrap build \
             --manifest twa-manifest.json \
             --skipPwaValidation \
             --signingKeyStorePath ./qc-navigator.keystore \
