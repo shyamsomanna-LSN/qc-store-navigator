@@ -36,7 +36,14 @@ jobs:
             -keypass qcnav2024 \
             -dname "CN=QC Navigator, OU=Loadshare, O=Loadshare Networks, L=Bangalore, S=Karnataka, C=IN"
 
-      - name: Create Bubblewrap config
+      - name: Pre-configure Bubblewrap JDK path
+        run: |
+          mkdir -p ~/.llnw
+          echo "{\"jdkPath\":\"$JAVA_HOME\"}" > ~/.llnw/bubblewrap-config.json
+          echo "Bubblewrap config written:"
+          cat ~/.llnw/bubblewrap-config.json
+
+      - name: Create Bubblewrap TWA manifest
         run: |
           cat > twa-manifest.json << 'EOF'
           {
@@ -75,7 +82,7 @@ jobs:
           BUBBLEWRAP_KEYSTORE_PASSWORD: qcnav2024
           BUBBLEWRAP_KEY_PASSWORD: qcnav2024
         run: |
-          printf "n\n${JAVA_HOME}\n" | bubblewrap build \
+          bubblewrap build \
             --manifest twa-manifest.json \
             --skipPwaValidation \
             --signingKeyStorePath ./qc-navigator.keystore \
