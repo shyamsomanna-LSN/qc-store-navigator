@@ -1,5 +1,7 @@
 <title>QC Store Navigator</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#0D1E35">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -338,4 +340,9 @@ document.getElementById('search').addEventListener('input',function(){
 
 // ── INIT ─────────────────────────────────────────────────────────
 renderAll();
+
+// Service worker registration
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 </script>
